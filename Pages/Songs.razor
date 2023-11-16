@@ -1,0 +1,216 @@
+﻿@page "/songs"
+@using BlazorSongList.Models
+@using Dapper
+@using MySql.Data.MySqlClient
+@inject SongRepository songRepository
+
+<h1>Song List Database</h1>
+
+<p>This component demonstrates managing a Song List.</p>
+
+@if (songs == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#exampleModal">Add</button>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Artist</th>
+                <th>Year</th>
+                <th></th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in songs)
+            {
+                <tr>
+                    <td>@item.SongId</td>
+                    <td>@item.Title</td>
+                    <td>@item.Artist</td>
+                    <td>@item.Year</td>
+                    <td>
+                        <button class="btn btn-outline-dark" @onclick="()=>Edit(item)">Edit</button>
+                        <button class="btn btn-outline-danger" @onclick="()=>Delete(item)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (editingSong != null)
+    {
+        <EditForm Model="@editingSong" OnValidSubmit="@SaveEdit">
+            <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+                <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="exampleModalLabel">Edit Song</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label for="songId">Song ID</label>
+                                <input type="text" class="form-control" id="songId" @bind="@editingSong.SongId" readonly />
+                            </div>
+                            <div class="form-group">
+                                <label for="title">Title</label>
+                                <input type="text" class="form-control" id="title" @bind="@editingSong.Title" />
+                            </div>
+                            <div class="form-group">
+                                <label for="artist">Artist</label>
+                                <input type="text" class="form-control" id="artist" @bind="@editingSong.Artist" />
+                            </div>
+                            <div class="form-group">
+                                <label for="year">Year</label>
+                                <input type="text" class="form-control" id="year" @bind="@editingSong.Year" />
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="CancelEdit">Close</button>
+                            <button type="submit" class="btn btn-primary">Save changes</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </EditForm>
+    }
+
+    <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLabel">Add A Song</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="newSongID">Song ID</label>
+                        <input type="text" class="form-control" id="newSongID" @bind="@SongID" />
+                    </div>
+                    <div class="form-group">
+                        <label for="newTitle">Title</label>
+                        <input type="text" class="form-control" id="newTitle" @bind="@Title" />
+                    </div>
+                    <div class="form-group">
+                        <label for="newArtist">Artist</label>
+                        <input type="text" class="form-control" id="newArtist" @bind="@Artist" />
+                    </div>
+                    <div class="form-group">
+                        <label for="newYear">Year</label>
+                        <input type="text" class="form-control" id="newYear" @bind="@Year" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" @onclick="@Add">Submit</button>
+                </div>
+                @if (!string.IsNullOrEmpty(ErrorMessage))
+                {
+                    <p class="text-danger">@ErrorMessage</p>
+                }
+            </div>
+        </div>
+    </div>
+}
+@code {
+    List<Song> songs { get; set; } = new List<Song>();
+    private string SongID = null!;
+    private string Title = null!;
+    private string Artist = null!;
+    private string Year = null!;
+    Song? editingSong;
+    private string? ErrorMessage { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        songs = await new SongRepository().GetAllSongsAsync();
+        StateHasChanged();
+    }
+
+    private void Edit(Song song)
+    {
+        editingSong = new Song
+            {
+                SongId = song.SongId,
+                Title = song.Title,
+                Artist = song.Artist,
+                Year = song.Year
+            };
+        StateHasChanged();
+    }
+
+    private async Task SaveEdit()
+    {
+        try
+        {
+            await songRepository.UpdateSongAsync(editingSong!);
+
+            var index = songs.FindIndex(s => s.SongId == editingSong?.SongId);
+
+            if (index != -1)
+            {
+                songs[index] = editingSong!;
+            }
+            editingSong = null;
+            StateHasChanged();
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Exception: {e.Message}");
+        }
+    }
+
+    private void CancelEdit()
+    {
+        editingSong = null;
+        StateHasChanged();
+    }
+
+    private async Task Delete(Song song)
+    {
+        await songRepository.DeleteSongAsync(song.SongId);
+        songs.Remove(song);
+    }
+
+    private async Task Add()
+    {
+        if (songs.Any(s => s.SongId == SongID))
+        {
+            ErrorMessage = "Song with the same ID already exists.";
+        }
+        else
+        {
+            var data = new Song
+                {
+                    SongId = SongID,
+                    Title = Title,
+                    Artist = Artist,
+                    Year = Year
+                };
+            await songRepository.InsertSongAsync(data);
+
+            songs.Add(data);
+            SongID = null!;
+            Title = null!;
+            Artist = null!;
+            Year = null!;
+            ErrorMessage = null;
+        }
+    }
+}
